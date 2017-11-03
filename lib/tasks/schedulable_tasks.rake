@@ -1,6 +1,14 @@
 require 'rake'
 desc 'Builds occurrences for schedulable models'
 namespace :schedulable do
+  task test: :environment do
+    puts 'test of schedulable'
+    Schedule.count
+    Schedule.uniq.pluck(:schedulable_type).each do |schedulable_type|
+      puts schedulable_type
+    end
+  end
+
   task :build_occurrences => :environment do
     Schedule.uniq.pluck(:schedulable_type).each do |schedulable_type|
       clazz = schedulable_type.constantize
