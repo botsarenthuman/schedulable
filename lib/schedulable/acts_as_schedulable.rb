@@ -10,8 +10,6 @@ module Schedulable
     module ClassMethods
       
       def acts_as_schedulable(name, options = {})
-        debugger      
-        puts ">>>>>> #{name}"
 
         name||= :schedule
         attribute = :date
@@ -50,6 +48,8 @@ module Schedulable
           has_many previous_occurrences_association, -> { where("#{occurrences_table_name}.date < ?", Time.now).order('date DESC')}, previous_occurrences_options
           
           ActsAsSchedulable.add_occurrences_association(self, occurrences_association)
+
+          debugger      
           
           after_save "build_#{occurrences_association}"
  
