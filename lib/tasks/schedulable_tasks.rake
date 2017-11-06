@@ -7,7 +7,7 @@ namespace :schedulable do
       puts schedulable_type
     end
   end
-  
+
   desc 'Builds occurrences for schedulable models'
   task build_occurrences: :environment do
     Schedule.all.uniq.pluck(:schedulable_type).each do |schedulable_type|
