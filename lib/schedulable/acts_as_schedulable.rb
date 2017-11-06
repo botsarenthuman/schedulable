@@ -48,9 +48,7 @@ module Schedulable
           has_many previous_occurrences_association, -> { where("#{occurrences_table_name}.date < ?", Time.now).order('date DESC')}, previous_occurrences_options
           
           ActsAsSchedulable.add_occurrences_association(self, occurrences_association)
-
-          #debugger      
-          
+                
           after_save "build_#{occurrences_association}".to_sym
  
           self.class.instance_eval do
@@ -158,7 +156,6 @@ module Schedulable
                   end
                 end
               end
-              
               
               # Clean up unused remaining occurrences 
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
