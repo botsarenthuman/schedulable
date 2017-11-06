@@ -151,6 +151,8 @@ module Schedulable
                   end
                 else
                   # Create new record
+                  puts '>>>>>>>>>>>>' + occurrence.inspect 
+                  debugger 
                   if !occurrences_records.create(date: occurrence.to_datetime)
                     puts 'An error occurred while creating an occurrence record'
                   end
