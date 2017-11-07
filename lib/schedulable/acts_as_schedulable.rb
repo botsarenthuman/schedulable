@@ -131,7 +131,6 @@ module Schedulable
               # build occurrences
               existing_record = nil
               occurrences.each_with_index do |occurrence, index|
-                debugger
                 # Pull an existing record
                 if update_mode == :index
                   existing_records = [occurrences_records[index]]
