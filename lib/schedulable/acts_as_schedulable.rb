@@ -110,7 +110,7 @@ module Schedulable
               else
                 # Get Singular occurrence
                 d = schedule.date
-                t = schedule.time
+                t = schedule.start_time
                 dt = d + t.seconds_since_midnight.seconds   
                 singular_date_time = (d + t.seconds_since_midnight.seconds).to_datetime
                 occurrences = [singular_date_time]
