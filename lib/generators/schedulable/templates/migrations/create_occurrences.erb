@@ -5,12 +5,12 @@ class Create<%= name.classify.pluralize %> < ActiveRecord::Migration[5.1]
       t.<%= attribute.type %> :<%= attribute.name %>
 <% end %>
       t.references :schedulable, polymorphic: true
-      t.datetime :date
-      t.datetime :start_time
-      t.datetime :end_time
+      t.date :date
+      t.time :start_time
+      t.time :end_time
 
       t.timestamps
-      
+
     end
   end
 
