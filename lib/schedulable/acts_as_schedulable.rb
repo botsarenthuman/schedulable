@@ -160,7 +160,6 @@ module Schedulable
                   # end
                 else
                   # Create new record
-                  puts "Creating new event -> #{ {date: occurrence.to_datetime, start_time: start_time, end_time: end_time}.inspect }"
                   unless occurrences_records.create(date: occurrence.to_datetime, start_time: start_time, end_time: end_time)
                     puts 'An error occurred while creating an occurrence record'
                   end
