@@ -181,6 +181,12 @@ module Schedulable
               content_wrap( @template, f.send(input_types[:end_time].to_sym, *[:end_time].concat(f.method(input_types[:end_time].to_sym).parameters.count >= 3 ? [date_options] : [{minute_step: 15}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
             end <<
 
+            # effective_date Select
+            @template.content_tag("div", style_options[:field_html].merge({data: {group: 'daily,weekly,monthly'}})) do
+              content_wrap(@template, f.label(:effective_date, style_options[:label_html]), style_options[:label_wrapper]) <<
+              content_wrap( @template, f.send(input_types[:date].to_sym, *[:effective_date].concat(f.method(input_types[:date].to_sym).parameters.count >= 3 ? [date_options] : []).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+            end <<
+
             # Optional Fields...
 
             # Interval Number Field

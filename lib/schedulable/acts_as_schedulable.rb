@@ -6,6 +6,7 @@ module Schedulable
     end
 
     module ClassMethods
+
       def acts_as_schedulable(name, options = {})
         name ||= :schedule
         attribute = :date
@@ -52,21 +53,17 @@ module Schedulable
               # build occurrences for all events
               # TODO: only invalid events
               schedulables = all
-              schedulables.each do |schedulable|
-                schedulable.send("build_#{occurrences_association}")
-              end
+              schedulables.each { |schedulable| schedulable.send("build_#{occurrences_association}") }
             end
           end
 
           define_method "build_#{occurrences_association}_after_update" do
             schedule = send(name)
-            # en este punto hay que validar que no se construyan los eventos si hubo algún cambio en el Schedule
-            # aunque la validacion está aqui, algo esta disparando la validacion aunque no haya habido cambios
-            # binding.pry if schedule.changes.any?
             send("build_#{occurrences_association}") if schedule.changes.any?
           end
 
           define_method "build_#{occurrences_association}" do
+
             # build occurrences for events
             schedule = send(name)
 
@@ -88,10 +85,13 @@ module Schedulable
               max_count = terminating && schedule.remaining_occurrences.any? ? [max_count, schedule.remaining_occurrences.count].min : max_count
 
               if schedule.rule != 'singular'
-                # Get schedule occurrences
-                all_occurrences = schedule.occurrences_between(Time.zone.now, max_date.to_time)
-                occurrences = []
+                # effective_date must declared as an attr_accessor in the schedulable class
+                effective_date = now if effective_date.nil?
 
+                # Get schedule occurrences
+                all_occurrences = schedule.occurrences_between(effective_date.beginning_of_day, max_date.to_time)
+
+                occurrences = []
                 # Filter valid dates
                 all_occurrences.each_with_index do |occurrence_date, index|
                   if occurrence_date.present? && occurrence_date.to_time > now
@@ -106,8 +106,7 @@ module Schedulable
                 # Get Singular occurrence
                 d = schedule.date
                 t = schedule.start_time
-
-                dt = d + t.seconds_since_midnight.seconds
+                # dt = d + t.seconds_since_midnight.seconds
                 singular_date_time = (d + t.seconds_since_midnight.seconds).to_datetime
                 occurrences = [singular_date_time]
               end
@@ -121,17 +120,12 @@ module Schedulable
               # Get existing remaining records
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
 
-              # binding.pry unless occurrences_records.empty?
-
               # build occurrences
-              existing_record = nil
               occurrences.each_with_index do |occurrence, index|
                 # Pull an existing record
                 if update_mode == :index
                   existing_records = [occurrences_records[index]]
                 elsif update_mode == :datetime
-                  # binding.pry unless occurrences_records.empty?
-                  #TODO el problema podría ser que no esta obteniendo nada en este select
                   existing_records = occurrences_records.select do |record|
                     record.date == occurrence.to_date &&
                     record.start_time.hour == occurrence.start_time.hour &&
@@ -144,20 +138,17 @@ module Schedulable
                   existing_records = []
                 end
 
-                # binding.pry unless existing_records.empty?
-
                 start_time = schedule.rule == 'singular' ? occurrence : occurrence.start_time
                 end_time = schedule.rule == 'singular' ? occurrence : occurrence.end_time
 
                 if existing_records.any?
+
                   # Overwrite existing records
-                  # TODO Do I want to overwrite? doesn't seems to be necessary
-                  # existing_records.each do |existing_record|
-                    # binding.pry
-                    # unless occurrences_records.update(existing_record.id, date: occurrence.to_date, start_time: start_time, end_time: end_time)
-                      # puts 'An error occurred while saving an existing occurrence record'
-                    # end
-                  # end
+                  existing_records.each do |existing_record|
+                    unless existing_record.update(date: occurrence.to_date, start_time: start_time, end_time: end_time)
+                      puts 'An error occurred while saving an existing occurrence record'
+                    end
+                  end
                 else
                   # Create new record
                   unless occurrences_records.create(date: occurrence.to_datetime, start_time: start_time, end_time: end_time)
