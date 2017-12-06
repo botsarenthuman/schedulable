@@ -70,6 +70,10 @@ module Schedulable
             if schedule.present?
               now = Time.zone.now
 
+              # all events changes will be made from this date on
+              # effective_date must declared as an attr_accessor in the schedulable class
+              effective_date_for_changes = effective_date.nil? ? now : effective_date
+
               # TODO: Make configurable
               # occurrence_attribute = :date
 
@@ -85,16 +89,13 @@ module Schedulable
               max_count = terminating && schedule.remaining_occurrences.any? ? [max_count, schedule.remaining_occurrences.count].min : max_count
 
               if schedule.rule != 'singular'
-                # effective_date must declared as an attr_accessor in the schedulable class
-                effective_date = now if effective_date.nil?
-
                 # Get schedule occurrences
-                all_occurrences = schedule.occurrences_between(effective_date.beginning_of_day, max_date.to_time)
+                all_occurrences = schedule.occurrences_between(effective_date_for_changes.beginning_of_day, max_date.to_time)
 
                 occurrences = []
                 # Filter valid dates
                 all_occurrences.each_with_index do |occurrence_date, index|
-                  if occurrence_date.present? && occurrence_date.to_time > now
+                  if occurrence_date.present? && occurrence_date.to_time > effective_date_for_changes
                     if occurrence_date.to_time < max_date && (index <= max_count || max_count <= 0)
                       occurrences << occurrence_date
                     else
@@ -119,6 +120,7 @@ module Schedulable
 
               # Get existing remaining records
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
+              # occurrences_records = schedulable.send("#{occurrences_association}").where('date >= ?', effective_date_for_changes)
 
               # build occurrences
               occurrences.each_with_index do |occurrence, index|
@@ -167,10 +169,13 @@ module Schedulable
                   .change(hour: occurrence_record.start_time.hour, min: occurrence_record.start_time.min)
 
                 mark_for_destruction = schedule.rule != 'singular' &&
+                  (occurrence_record.date >= effective_date_for_changes.to_date) &&
                   (!schedule.occurs_on?(event_time) ||
                   !schedule.occurring_at?(event_time) ||
                   occurrence_record.date > max_date) ||
                   schedule.rule == 'singular' && record_count > 0
+
+                # byebug if mark_for_destruction
 
                 mark_for_destruction = (event_time > now) && mark_for_destruction
                 record_count += 1
