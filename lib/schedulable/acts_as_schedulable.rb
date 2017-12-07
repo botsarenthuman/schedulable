@@ -23,7 +23,6 @@ module Schedulable
         accepts_nested_attributes_for name
 
         if options[:occurrences]
-
           # setup association
           if options[:occurrences].is_a?(String) || options[:occurrences].is_a?(Symbol)
             occurrences_association = options[:occurrences].to_sym
@@ -147,17 +146,28 @@ module Schedulable
                 start_time = schedule.rule == 'singular' ? occurrence : occurrence.start_time
                 end_time = schedule.rule == 'singular' ? occurrence : occurrence.end_time
 
-                if existing_records.any?
+                # fields that are going to be extracted from the schedulable
+                # and copied over to the occurrence. these should be configured
+                # at the model
+                schedulable_fields = options[:schedulable_fields]
 
+                # extracting the fields to copy them over
+                data = schedulable_fields.reduce({}) do |acum, f|
+                  acum[f] = self.send(f)
+                  acum
+                end
+
+                occurrence_data = data.merge(date: occurrence.to_date, start_time: start_time, end_time: end_time)
+
+                if existing_records.any?
                   # Overwrite existing records
                   existing_records.each do |existing_record|
-                    unless existing_record.update(date: occurrence.to_date, start_time: start_time, end_time: end_time)
+                    unless existing_record.update!(occurrence_data)
                       puts 'An error occurred while saving an existing occurrence record'
                     end
                   end
                 else
-                  # Create new record
-                  unless occurrences_records.create(date: occurrence.to_datetime, start_time: start_time, end_time: end_time)
+                  unless occurrences_records.create!(occurrence_data)
                     puts 'An error occurred while creating an occurrence record'
                   end
                 end
