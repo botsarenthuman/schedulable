@@ -149,7 +149,7 @@ module Schedulable
                 # fields that are going to be extracted from the schedulable
                 # and copied over to the occurrence. these should be configured
                 # at the model
-                schedulable_fields = options[:schedulable_fields]
+                schedulable_fields = options[:schedulable_fields] || {}
 
                 # extracting the fields to copy them over
                 data = schedulable_fields.reduce({}) do |acum, f|
