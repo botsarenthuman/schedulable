@@ -7,9 +7,17 @@ module Schedulable
 
     module ClassMethods
 
+      attr_accessor :effective_date
+
       def acts_as_schedulable(name, options = {})
         name ||= :schedule
-        attribute = :date
+
+        # setting up an effective_date field in the model
+        arg = 'effective_date'
+        # getter
+        self.class_eval("def #{arg};@#{arg};end")
+        # setter
+        self.class_eval("def #{arg}=(val);@#{arg}=val;end")
 
         has_one name, as: :schedulable, dependent: :destroy, class_name: 'Schedule'
         accepts_nested_attributes_for name
@@ -71,11 +79,7 @@ module Schedulable
               now = Time.zone.now
 
               # all events changes will be made from this date on
-              # effective_date must declared as an attr_accessor in the schedulable class
               effective_date_for_changes = effective_date.nil? ? now : effective_date
-
-              # TODO: Make configurable
-              # occurrence_attribute = :date
 
               schedulable = schedule.schedulable
               terminating = schedule.rule != 'singular' && (schedule.until.present? || schedule.count.present? && schedule.count > 1)
@@ -183,7 +187,7 @@ module Schedulable
                 mark_for_destruction
               end
 
-              destruction_list.each {|d| d.destroy}
+              destruction_list.each(&:destroy)
 
             end
           end
@@ -199,8 +203,6 @@ module Schedulable
         item[:name]
       end
     end
-
-    private
 
     def self.add_occurrences_association(clazz, name)
       @@schedulable_occurrences ||= []
