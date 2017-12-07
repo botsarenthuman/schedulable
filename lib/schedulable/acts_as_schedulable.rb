@@ -15,9 +15,9 @@ module Schedulable
         # setting up an effective_date field in the model
         arg = 'effective_date'
         # getter
-        self.class_eval("def #{arg};@#{arg};end")
+        class_eval("def #{arg};@#{arg};end")
         # setter
-        self.class_eval("def #{arg}=(val);@#{arg}=val;end")
+        class_eval("def #{arg}=(val);@#{arg}=val;end")
 
         has_one name, as: :schedulable, dependent: :destroy, class_name: 'Schedule'
         accepts_nested_attributes_for name
