@@ -167,11 +167,9 @@ module Schedulable
                 if existing_records.any?
                   # Overwrite existing records
                   existing_records.each do |existing_record|
-                    # puts "occurrence_data > #{existing_record.id} -> #{occurrence_data.inspect}"
                     # if an event has bookings, do not update
                     unless existing_record.update(occurrence_data)
                       puts 'An error occurred while saving an existing occurrence record'
-
                       self.occurrences_with_errors << existing_record
                     end
                   end
@@ -198,8 +196,6 @@ module Schedulable
                   !schedule.occurring_at?(event_time) ||
                   occurrence_record.date > max_date) ||
                   schedule.rule == 'singular' && record_count > 0
-
-                # byebug if mark_for_destruction
 
                 mark_for_destruction = (event_time > now) && mark_for_destruction
                 record_count += 1
