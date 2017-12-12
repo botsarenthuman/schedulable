@@ -7,17 +7,21 @@ module Schedulable
 
     module ClassMethods
 
-      attr_accessor :effective_date
+      def set_up_accessor(arg)
+        # getter
+        class_eval("def #{arg};@#{arg};end")
+        # setter
+        class_eval("def #{arg}=(val);@#{arg}=val;end")
+      end
 
       def acts_as_schedulable(name, options = {})
         name ||= :schedule
 
         # setting up an effective_date field in the model
-        arg = 'effective_date'
-        # getter
-        class_eval("def #{arg};@#{arg};end")
-        # setter
-        class_eval("def #{arg}=(val);@#{arg}=val;end")
+        # effective_date sets the starting point for modifying occurrences
+        set_up_accessor('effective_date')
+        # var to store all the occurrences with errors
+        set_up_accessor('occurrences_with_errors')
 
         has_one name, as: :schedulable, dependent: :destroy, class_name: 'Schedule'
         accepts_nested_attributes_for name
@@ -137,7 +141,6 @@ module Schedulable
                     record.start_time.min == occurrence.start_time.min &&
                     record.end_time.hour == occurrence.end_time.hour &&
                     record.end_time.min == occurrence.end_time.min
-                    # record.date.to_datetime == occurrence.to_datetime
                   end
                 else
                   existing_records = []
@@ -151,7 +154,7 @@ module Schedulable
                 # at the model
                 schedulable_fields = options[:schedulable_fields] || {}
 
-                # extracting the fields to copy them over
+                # extracting the fields to update/create the related occurrence
                 data = schedulable_fields.reduce({}) do |acum, f|
                   acum[f] = self.send(f)
                   acum
@@ -159,15 +162,21 @@ module Schedulable
 
                 occurrence_data = data.merge(date: occurrence.to_date, start_time: start_time, end_time: end_time)
 
+                self.occurrences_with_errors = [] if self.occurrences_with_errors.nil?
+
                 if existing_records.any?
                   # Overwrite existing records
                   existing_records.each do |existing_record|
-                    unless existing_record.update!(occurrence_data)
+                    # puts "occurrence_data > #{existing_record.id} -> #{occurrence_data.inspect}"
+                    # if an event has bookings, do not update
+                    unless existing_record.update(occurrence_data)
                       puts 'An error occurred while saving an existing occurrence record'
+
+                      self.occurrences_with_errors << existing_record
                     end
                   end
                 else
-                  unless occurrences_records.create!(occurrence_data)
+                  unless occurrences_records.create(occurrence_data)
                     puts 'An error occurred while creating an occurrence record'
                   end
                 end
@@ -182,6 +191,7 @@ module Schedulable
                   .date.to_time.utc
                   .change(hour: occurrence_record.start_time.hour, min: occurrence_record.start_time.min)
 
+                #if an event has bookings, do not destroy
                 mark_for_destruction = schedule.rule != 'singular' &&
                   (occurrence_record.date >= effective_date_for_changes.to_date) &&
                   (!schedule.occurs_on?(event_time) ||
