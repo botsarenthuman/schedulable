@@ -11,7 +11,7 @@ gemspec
 # your gem to rubygems.org.
 
 # To use debugger
-# gem 'debugger'
+gem 'debugger'
 
 gem 'ice_cube', git: 'git://github.com/joelmeyerhamme/ice_cube.git', branch: 'master'
 gem 'simple_form'
