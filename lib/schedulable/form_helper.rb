@@ -54,6 +54,8 @@ module Schedulable
           use_month_names: month_names
         }
 
+        datetime_options = { minute_step: 5 }
+
         # Get config options
         config_options = Schedulable.config.form_helper.present? ? Schedulable.config.form_helper : {style: :default}
 
@@ -172,19 +174,19 @@ module Schedulable
             # StartTime Select
             @template.content_tag("div", style_options[:field_html].merge({data: {group: 'singular,daily,weekly,monthly'}})) do
               content_wrap(@template, f.label(:start_time, style_options[:label_html]), style_options[:label_wrapper]) <<
-              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:start_time].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [date_options] : [{minute_step: 15}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:start_time].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : [{}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
             end <<
 
             # EndTime Select
             @template.content_tag("div", style_options[:field_html].merge({data: {group: 'singular,daily,weekly,monthly'}})) do
               content_wrap(@template, f.label(:end_time, style_options[:label_html]), style_options[:label_wrapper]) <<
-              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:end_time].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [date_options] : [{minute_step: 15}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:end_time].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : [{}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
             end <<
 
             # effective_date Select
             @template.content_tag("div", style_options[:field_html].merge({data: {group: 'daily,weekly,monthly'}})) do
               content_wrap(@template, f.label(:effective_date, style_options[:label_html]), style_options[:label_wrapper]) <<
-              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:effective_date].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [date_options] : []).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:effective_date].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : []).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
             end <<
 
             # Optional Fields...
@@ -205,7 +207,7 @@ module Schedulable
 
               @template.content_tag("div", style_options[:field_html].merge({data: {group: 'daily,weekly,monthly'}})) do
                 content_wrap(@template, f.label(:until, style_options[:label_html]), style_options[:label_wrapper]) <<
-                content_wrap(@template, f.send(input_types[:datetime].to_sym, *[:until].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [date_options] : []).concat([style_options[:date_select_html].clone])), style_options[:date_select_wrapper])
+                content_wrap(@template, f.send(input_types[:datetime].to_sym, *[:until].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : []).concat([style_options[:date_select_html].clone])), style_options[:date_select_wrapper])
               end
             else
               f.hidden_field(:until, value: nil)
