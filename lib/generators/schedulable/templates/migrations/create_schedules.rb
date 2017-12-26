@@ -3,10 +3,8 @@ class CreateSchedules < ActiveRecord::Migration[5.1]
     create_table :schedules do |t|
       t.references :schedulable, polymorphic: true
 
-      t.date :date
-
-      t.time :start_time
-      t.time :end_time
+      t.datetime :start_time
+      t.datetime :end_time
 
       t.string :rule
       t.string :interval

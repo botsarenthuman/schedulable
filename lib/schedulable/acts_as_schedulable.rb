@@ -48,12 +48,12 @@ module Schedulable
           # remaining
           remaining_occurrences_options = options[:occurrences].clone
           remaining_occurrences_association = ('remaining_' << occurrences_association.to_s).to_sym
-          has_many remaining_occurrences_association, -> { where("#{occurrences_table_name}.date >= ?", Time.zone.now.to_date).order('date ASC') }, remaining_occurrences_options
+          has_many remaining_occurrences_association, -> { where("#{occurrences_table_name}.start_time >= ?", Time.zone.now.to_datetime).order('start_time ASC') }, remaining_occurrences_options
 
           # previous
           previous_occurrences_options = options[:occurrences].clone
           previous_occurrences_association = ('previous_' << occurrences_association.to_s).to_sym
-          has_many previous_occurrences_association, -> { where("#{occurrences_table_name}.date < ?", Time.zone.now.to_date).order('date DESC') }, previous_occurrences_options
+          has_many previous_occurrences_association, -> { where("#{occurrences_table_name}.start_time < ?", Time.zone.now.to_datetime).order('start_time DESC') }, previous_occurrences_options
 
           ActsAsSchedulable.add_occurrences_association(self, occurrences_association)
 
@@ -74,7 +74,6 @@ module Schedulable
           end
 
           define_method "build_#{occurrences_association}" do
-
             # build occurrences for events
             schedule = send(name)
 
@@ -110,14 +109,19 @@ module Schedulable
                     end
                   end
                 end
+
               else
                 # Get Singular occurrence
-                d = schedule.date
-                t = schedule.start_time
+                # d = schedule.date
+                # t = schedule.start_time
                 # dt = d + t.seconds_since_midnight.seconds
-                singular_date_time = (d + t.seconds_since_midnight.seconds).to_datetime
-                occurrences = [singular_date_time]
+                # singular_date_time = (d + t.seconds_since_midnight.seconds).to_datetime
+                # singular_date_time = schedule.start_time
+                # occurrences = [singular_date_time]
+                occurrences = [schedule.start_time]
               end
+
+              # occurrences debe tener al menos una fecha
 
               # Build occurrences
               update_mode = Schedulable.config.update_mode || :datetime
@@ -133,14 +137,18 @@ module Schedulable
               occurrences.each_with_index do |occurrence, index|
                 # Pull an existing record
                 if update_mode == :index
-                  existing_records = [occurrences_records[index]]
+                existing_records = [occurrences_records[index]]
                 elsif update_mode == :datetime
+
+                  # byebug
                   existing_records = occurrences_records.select do |record|
-                    record.date == occurrence.to_date &&
-                    record.start_time.hour == occurrence.start_time.hour &&
-                    record.start_time.min == occurrence.start_time.min &&
-                    record.end_time.hour == occurrence.end_time.hour &&
-                    record.end_time.min == occurrence.end_time.min
+                    # record.date == occurrence.to_datetime &&
+                    # record.start_time.hour == occurrence.start_time.hour &&
+                    # record.start_time.min == occurrence.start_time.min &&
+                    # record.end_time.hour == occurrence.end_time.hour &&
+                    # record.end_time.min == occurrence.end_time.min
+                    record.start_time == occurrence.start_time &&
+                    record.end_time == occurrence.end_time
                   end
                 else
                   existing_records = []
@@ -160,10 +168,10 @@ module Schedulable
                   acum
                 end
 
-                occurrence_data = data.merge(date: occurrence.to_date, start_time: start_time, end_time: end_time)
+                occurrence_data = data.merge(start_time: start_time, end_time: end_time)
 
                 self.occurrences_with_errors = [] if self.occurrences_with_errors.nil?
-
+# byebug
                 if existing_records.any?
                   # Overwrite existing records
                   existing_records.each do |existing_record|
@@ -185,16 +193,15 @@ module Schedulable
 
               record_count = 0
               destruction_list = occurrences_records.select do |occurrence_record|
-                event_time = occurrence_record
-                  .date.to_time.utc
-                  .change(hour: occurrence_record.start_time.hour, min: occurrence_record.start_time.min)
+                event_time = occurrence_record.start_time
+                  # .date.to_time.utc
+                  # .change(hour: occurrence_record.start_time.hour, min: occurrence_record.start_time.min)
 
-                #if an event has bookings, do not destroy
                 mark_for_destruction = schedule.rule != 'singular' &&
-                  (occurrence_record.date >= effective_date_for_changes.to_date) &&
+                  (occurrence_record.start_time >= effective_date_for_changes.to_datetime) &&
                   (!schedule.occurs_on?(event_time) ||
                   !schedule.occurring_at?(event_time) ||
-                  occurrence_record.date > max_date) ||
+                  occurrence_record.start_time.to_date > max_date) ||
                   schedule.rule == 'singular' && record_count > 0
 
                 mark_for_destruction = (event_time > now) && mark_for_destruction
@@ -202,9 +209,8 @@ module Schedulable
 
                 mark_for_destruction
               end
-
+              # byebug
               destruction_list.each(&:destroy)
-
             end
           end
         end
