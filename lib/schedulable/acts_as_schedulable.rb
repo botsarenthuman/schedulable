@@ -131,7 +131,6 @@ module Schedulable
 
               # Get existing remaining records
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
-              # occurrences_records = schedulable.send("#{occurrences_association}").where('date >= ?', effective_date_for_changes)
 
               # build occurrences
               occurrences.each_with_index do |occurrence, index|
@@ -142,11 +141,6 @@ module Schedulable
 
                   # byebug
                   existing_records = occurrences_records.select do |record|
-                    # record.date == occurrence.to_datetime &&
-                    # record.start_time.hour == occurrence.start_time.hour &&
-                    # record.start_time.min == occurrence.start_time.min &&
-                    # record.end_time.hour == occurrence.end_time.hour &&
-                    # record.end_time.min == occurrence.end_time.min
                     record.start_time == occurrence.start_time &&
                     record.end_time == occurrence.end_time
                   end
