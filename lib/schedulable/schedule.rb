@@ -13,7 +13,7 @@ module Schedulable
       validates_presence_of :rule
       validates_presence_of :start_time
       validates_presence_of :end_time
-      validates_presence_of :date, if: Proc.new { |schedule| schedule.rule == 'singular' }
+      # validates_presence_of :date, if: Proc.new { |schedule| schedule.rule == 'singular' }
       validate :validate_day, if: Proc.new { |schedule| schedule.rule == 'weekly' }
       validate :validate_day_of_week, if: Proc.new { |schedule| schedule.rule == 'monthly' }
 
@@ -25,7 +25,7 @@ module Schedulable
         message = ""
         if self.rule == 'singular'
           # Return formatted datetime for singular rules
-          datetime = DateTime.new(date.year, date.month, date.day, start_time.hour, start_time.min, start_time.sec, start_time.zone)
+          datetime = DateTime.new(start_time.year, start_time.month, start_time.day, start_time.hour, start_time.min, start_time.sec, start_time.zone)
           message = I18n.localize(datetime)
         else
           # For other rules, refer to icecube
@@ -48,7 +48,7 @@ module Schedulable
       end
 
       def self.param_names
-        [:id, :date, :start_time, :end_time, :rule, :until, :count, :interval, day: [], day_of_week: [monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []]]
+        [:id, :start_time, :end_time, :rule, :until, :count, :interval, day: [], day_of_week: [monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []]]
       end
 
       def update_schedule()
@@ -63,7 +63,7 @@ module Schedulable
         end
         start_time_string = start_time.strftime("%d-%m-%Y %I:%M %p")
         start_time = Time.zone.parse(start_time_string)
-        
+
         end_time = Date.today.to_time(:utc)
         if self.end_time.present?
           end_time = end_time + self.end_time.seconds_since_midnight.seconds

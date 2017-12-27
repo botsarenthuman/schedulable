@@ -1,13 +1,13 @@
 class Create<%= name.classify.pluralize %> < ActiveRecord::Migration[5.1]
   def self.up
     create_table :<%= name.tableize %> do |t|
-<% attributes.each do |attribute| %>
-      t.<%= attribute.type %> :<%= attribute.name %>
-<% end %>
+      <% attributes.each do |attribute| %>
+        t.<%= attribute.type %> :<%= attribute.name %>
+      <% end %>
       t.references :schedulable, polymorphic: true
-      t.date :date
-      t.time :start_time
-      t.time :end_time
+
+      t.datetime :start_time
+      t.datetime :end_time
 
       t.timestamps
 
