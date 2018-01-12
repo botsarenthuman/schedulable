@@ -109,15 +109,7 @@ module Schedulable
                     end
                   end
                 end
-
               else
-                # Get Singular occurrence
-                # d = schedule.date
-                # t = schedule.start_time
-                # dt = d + t.seconds_since_midnight.seconds
-                # singular_date_time = (d + t.seconds_since_midnight.seconds).to_datetime
-                # singular_date_time = schedule.start_time
-                # occurrences = [singular_date_time]
                 occurrences = [schedule.start_time]
               end
 
@@ -132,17 +124,19 @@ module Schedulable
               # Get existing remaining records
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
 
-              # build occurrences
+              # compares existing occurrences in DB with valid occurrences according to icecube
+              # var occurrences stores schedule objects filtered from all_occurrences
+              # var occurrences_records stores actual DB records
               occurrences.each_with_index do |occurrence, index|
                 # Pull an existing record
                 if update_mode == :index
-                existing_records = [occurrences_records[index]]
+                  existing_records = [occurrences_records[index]]
                 elsif update_mode == :datetime
 
-                  # byebug
+                  # select records here that wont be destroyed
                   existing_records = occurrences_records.select do |record|
-                    record.start_time == occurrence.start_time &&
-                    record.end_time == occurrence.end_time
+                    # only one event per day?
+                    record.start_time.to_date == occurrence.start_time.to_date
                   end
                 else
                   existing_records = []
@@ -162,18 +156,48 @@ module Schedulable
                   acum
                 end
 
+                # Fields that will be used to create/update events
                 occurrence_data = data.merge(start_time: start_time, end_time: end_time)
 
                 self.occurrences_with_errors = [] if self.occurrences_with_errors.nil?
-# byebug
+
+                # Delete all records, except those that have bookings or overrided values
+                # Create all other records
+                # byebug unless effective_date.nil?
                 if existing_records.any?
-                  # Overwrite existing records
                   existing_records.each do |existing_record|
-                    # if an event has bookings, do not update
+                    # Checks if event has bookings
+                    if existing_record.respond_to?(:bookings) && existing_record.bookings.any?
+                      existing_record.errors.add(:base, 'Event has bookings, cannot be updated')
+                      self.occurrences_with_errors << existing_record
+                      next
+                    end
+
+                    # Checks if values have been overriden
+                    # If occurrence values have been overrided, skip the record
+                    values_overriden = false
+                    occurrence_data.keys.each do |key|
+                      if (key != :start_time && key != :end_time) && existing_record[key] != self[key]
+                        existing_record.errors.add(:base,
+                          "#{key} on #{occurrence_data[:start_time].to_formatted_s(:short)}" +
+                          "cannot be updated to #{self[key]} as it had been already changed to #{existing_record[key]}")
+                        self.occurrences_with_errors << existing_record
+                        values_overriden ||= true
+                      end
+                    end
+                    next if values_overriden
+
                     unless existing_record.update(occurrence_data)
                       puts 'An error occurred while saving an existing occurrence record'
                       self.occurrences_with_errors << existing_record
                     end
+
+                    # current record is destroyed and another is created
+                    # existing_record.destroy
+                    # new_record = occurrences_records.create(occurrence_data)
+                    # puts 'An error occurred while creating an occurrence record' unless new_record
+                    # existing_record.destroy
+
                   end
                 else
                   unless occurrences_records.create(occurrence_data)
@@ -183,28 +207,26 @@ module Schedulable
               end
 
               # Clean up unused remaining occurrences
-              occurrences_records = schedulable.send("remaining_#{occurrences_association}")
-
-              record_count = 0
-              destruction_list = occurrences_records.select do |occurrence_record|
-                event_time = occurrence_record.start_time
-                  # .date.to_time.utc
-                  # .change(hour: occurrence_record.start_time.hour, min: occurrence_record.start_time.min)
-
-                mark_for_destruction = schedule.rule != 'singular' &&
-                  (occurrence_record.start_time >= effective_date_for_changes.to_datetime) &&
-                  (!schedule.occurs_on?(event_time) ||
-                  !schedule.occurring_at?(event_time) ||
-                  occurrence_record.start_time.to_date > max_date) ||
-                  schedule.rule == 'singular' && record_count > 0
-
-                mark_for_destruction = (event_time > now) && mark_for_destruction
-                record_count += 1
-
-                mark_for_destruction
-              end
-              # byebug
-              destruction_list.each(&:destroy)
+              # occurrences_records = schedulable.send("remaining_#{occurrences_association}")
+              #
+              # record_count = 0
+              # destruction_list = occurrences_records.select do |occurrence_record|
+              #   event_time = occurrence_record.start_time
+              #
+              #   mark_for_destruction = schedule.rule != 'singular' &&
+              #     (occurrence_record.start_time >= effective_date_for_changes.to_datetime) &&
+              #     (!schedule.occurs_on?(event_time) ||
+              #     !schedule.occurring_at?(event_time) ||
+              #     occurrence_record.start_time.to_date > max_date) ||
+              #     schedule.rule == 'singular' && record_count > 0
+              #
+              #   mark_for_destruction = (event_time > now) && mark_for_destruction
+              #   record_count += 1
+              #
+              #   mark_for_destruction
+              # end
+              # # byebug
+              # destruction_list.each(&:destroy)
             end
           end
         end
