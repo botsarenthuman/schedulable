@@ -17,10 +17,9 @@ module Schedulable
       def acts_as_schedulable(name, options = {})
         name ||= :schedule
 
-        # setting up an effective_date field in the model
         # effective_date sets the starting point for modifying occurrences
         set_up_accessor('effective_date')
-        # var to store all the occurrences with errors
+        # var to store occurrences with errors
         set_up_accessor('occurrences_with_errors')
 
         has_one name, as: :schedulable, dependent: :destroy, class_name: 'Schedule'
@@ -109,19 +108,9 @@ module Schedulable
                     end
                   end
                 end
-
               else
-                # Get Singular occurrence
-                # d = schedule.date
-                # t = schedule.start_time
-                # dt = d + t.seconds_since_midnight.seconds
-                # singular_date_time = (d + t.seconds_since_midnight.seconds).to_datetime
-                # singular_date_time = schedule.start_time
-                # occurrences = [singular_date_time]
                 occurrences = [schedule.start_time]
               end
-
-              # occurrences debe tener al menos una fecha
 
               # Build occurrences
               update_mode = Schedulable.config.update_mode || :datetime
@@ -132,17 +121,19 @@ module Schedulable
               # Get existing remaining records
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
 
-              # build occurrences
+              # compares existing occurrences in DB with valid occurrences according to icecube
+              # var occurrences stores schedule objects filtered from all_occurrences
+              # var occurrences_records stores actual DB records
               occurrences.each_with_index do |occurrence, index|
                 # Pull an existing record
                 if update_mode == :index
-                existing_records = [occurrences_records[index]]
+                  existing_records = [occurrences_records[index]]
                 elsif update_mode == :datetime
 
-                  # byebug
+                  # select records here that wont be destroyed
                   existing_records = occurrences_records.select do |record|
-                    record.start_time == occurrence.start_time &&
-                    record.end_time == occurrence.end_time
+                    # only one event per day?
+                    record.start_time.to_date == occurrence.start_time.to_date
                   end
                 else
                   existing_records = []
@@ -162,23 +153,19 @@ module Schedulable
                   acum
                 end
 
+                # Fields that will be used to create/update events
                 occurrence_data = data.merge(start_time: start_time, end_time: end_time)
 
                 self.occurrences_with_errors = [] if self.occurrences_with_errors.nil?
-# byebug
+
                 if existing_records.any?
-                  # Overwrite existing records
                   existing_records.each do |existing_record|
-                    # if an event has bookings, do not update
-                    unless existing_record.update(occurrence_data)
-                      puts 'An error occurred while saving an existing occurrence record'
-                      self.occurrences_with_errors << existing_record
-                    end
+                    existing_record.update_from_schedulable = true
+                    self.occurrences_with_errors << existing_record unless existing_record.update(occurrence_data)
                   end
                 else
-                  unless occurrences_records.create(occurrence_data)
-                    puts 'An error occurred while creating an occurrence record'
-                  end
+                  new_record = occurrences_records.build(occurrence_data)
+                  self.occurrences_with_errors << new_record unless new_record.save
                 end
               end
 
@@ -188,8 +175,6 @@ module Schedulable
               record_count = 0
               destruction_list = occurrences_records.select do |occurrence_record|
                 event_time = occurrence_record.start_time
-                  # .date.to_time.utc
-                  # .change(hour: occurrence_record.start_time.hour, min: occurrence_record.start_time.min)
 
                 mark_for_destruction = schedule.rule != 'singular' &&
                   (occurrence_record.start_time >= effective_date_for_changes.to_datetime) &&
@@ -203,7 +188,7 @@ module Schedulable
 
                 mark_for_destruction
               end
-              # byebug
+
               destruction_list.each(&:destroy)
             end
           end
