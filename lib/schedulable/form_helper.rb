@@ -7,12 +7,14 @@ module Schedulable
         input_wrapper: {tag: 'div'}
       },
       bootstrap: {
-        field_html: {class: 'field form-group'},
+        field_html: {class: ''},
         num_field_html: {class: 'form-control'},
         date_select_html: {class: 'form-control'},
         date_select_wrapper: {tag: 'div', class: 'form-inline'},
+        datetime_select_html: {class: 'form-control'},
+        datetime_select_wrapper: {tag: 'div', class: 'form-inline'},
         collection_select_html: {class: 'form-control'},
-        collection_check_boxes_item_wrapper: {tag: 'span', class: 'checkbox'}
+        collection_check_boxes_item_wrapper: {tag: 'div', class: 'btn-group-toggle'}
       }
     }
 
@@ -34,9 +36,10 @@ module Schedulable
         weekdays = Date::DAYNAMES.map(&:downcase)
         weekdays = weekdays.slice(1..7) << weekdays.slice(0)
 
-        day_names = I18n.t('date.day_names', default: "")
-        day_names = day_names.blank? ? weekdays.map { |day| day.capitalize } : day_names.slice(1..7) << day_names.slice(0)
-        day_labels = Hash[weekdays.zip(day_names)]
+        # day_names = I18n.t('date.day_names', default: "")
+        # day_names = day_names.blank? ? weekdays.map { |day| day.capitalize } : day_names.slice(1..7) << day_names.slice(0)
+        # day_labels = Hash[weekdays.zip(day_names)]
+        day_labels = Hash[weekdays.zip(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])]
 
         # Pass in default month names when missing in translations
         month_names = I18n.t('date.month_names', default: "")
@@ -119,32 +122,31 @@ module Schedulable
         # Javascript element id
         field_id = @object_name.to_s.gsub(/\]\[|[^-a-zA-Z0-9:.]/,"_").sub(/_$/,"") + "_" + attribute.to_s
 
-        @template.content_tag("div", {id: field_id}) do
-
-          self.fields_for(attribute, @object.send(attribute.to_s) || @object.send("build_" + attribute.to_s)) do |f|
+        @template.content_tag("div", {id: field_id, class: 'col-12'}) do
+          @template.content_tag("div", {class: 'form-row'}) do
+            self.fields_for(attribute, @object.send(attribute.to_s) || @object.send("build_" + attribute.to_s)) do |f|
 
             # Rule Select
-            @template.content_tag("div", style_options[:field_html]) do
+            @template.content_tag("div", style_options[:field_html].merge(class: 'col-12 mb-1') ) do
               select_output = f.collection_select(:rule, available_periods, lambda { |v| return v}, lambda { |v| I18n.t("schedulable.rules.#{v}", default: v.capitalize) }, {include_blank: false}, style_options[:collection_select_html])
               content_wrap(@template, select_output, style_options[:collection_select_wrapper])
             end <<
 
-            # Date Select
-            # @template.content_tag("div", style_options[:field_html].merge({data: {group: 'singular'}})) do
-              # content_wrap(@template, f.label(:date, style_options[:label_html]), style_options[:label_wrapper]) <<
-              # content_wrap(@template, f.send(input_types[:date].to_sym, *[:date].concat(f.method(input_types[:date].to_sym).parameters.count >= 3 ? [date_options] : []).concat([style_options[:date_select_html].clone])), style_options[:date_select_wrapper])
-            # end <<
-
             # Weekly Checkboxes
-            @template.content_tag("div", style_options[:field_html].merge({data: {group: 'weekly'}})) do
+            @template.content_tag("div", style_options[:field_html].merge({class: 'col-12 mb-2 mt-2', data: {group: 'weekly'}})) do
               content_wrap(@template, f.label(:day), style_options[:label_wrapper]) <<
-              f.collection_check_boxes(:day, weekdays, lambda { |v| return v}, lambda { |v| ("&nbsp;" + day_labels[v]).html_safe}) do |cb|
-                check_box_output = cb.check_box(style_options[:collection_check_boxes_item_html])
-                text = cb.text
-                nested_output = cb.label({}) do |l|
-                  check_box_output + text
+              @template.content_tag("div", class: 'row row-days') do
+
+                f.collection_check_boxes(:day, weekdays, lambda { |v| return v}, lambda { |v| (day_labels[v]).html_safe}) do |cb|
+                  check_box_output = cb.check_box(style_options[:collection_check_boxes_item_html])
+                  text = cb.text
+                  nested_output = cb.label({class: 'btn btn-lg btn-outline-success', style: 'width: 100%'}) do |l|
+                    check_box_output + text
+                  end
+
+                  wrap = content_wrap(@template, nested_output, style_options[:collection_check_boxes_item_wrapper])
+                  content_wrap(@template, wrap, tag: 'div', class: 'col')
                 end
-                content_wrap(@template, nested_output, style_options[:collection_check_boxes_item_wrapper])
               end
             end <<
 
@@ -172,28 +174,51 @@ module Schedulable
             end <<
 
             # StartTime Select
-            @template.content_tag("div", style_options[:field_html].merge({data: {group: 'singular,daily,weekly,monthly'}})) do
-              content_wrap(@template, f.label(:start_time, style_options[:label_html]), style_options[:label_wrapper]) <<
-              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:start_time].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : [{}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+            @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+              content_wrap(@template, f.label('Start date', style_options[:label_html]), style_options[:label_wrapper]) <<
+              @template.content_tag("div", class: 'input-group') do
+                content_wrap(@template, f.text_field(:start_time_date, class: 'form-control datepicker')) <<
+                @template.content_tag("div", class: 'input-group-append') do
+                  '<button type="button" class="btn btn-primary"><i class="icon-calendar"></i></button>'.html_safe
+                end
+              end
+            end <<
+
+            @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+              content_wrap(@template, f.label('Time', style_options[:label_html]), style_options[:label_wrapper]) <<
+              @template.content_tag("div", class: 'input-group') do
+                content_wrap(@template, f.text_field(:start_time_time, class: 'form-control')) <<
+                @template.content_tag("div", class: 'input-group-append') do
+                  '<button type="button" class="btn btn-primary"><i class="icon-clock"></i></button>'.html_safe
+                end
+              end
             end <<
 
             # EndTime Select
-            @template.content_tag("div", style_options[:field_html].merge({data: {group: 'singular,daily,weekly,monthly'}})) do
-              content_wrap(@template, f.label(:end_time, style_options[:label_html]), style_options[:label_wrapper]) <<
-              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:end_time].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : [{}]).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+            @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+              content_wrap(@template, f.label('End date', style_options[:label_html]), style_options[:label_wrapper]) <<
+              @template.content_tag("div", class: 'input-group') do
+                content_wrap(@template, f.text_field(:end_time_date, class: 'form-control datepicker')) <<
+                @template.content_tag("div", class: 'input-group-append') do
+                  '<button type="button" class="btn btn-primary"><i class="icon-calendar"></i></button>'.html_safe
+                end
+              end
             end <<
 
-            # effective_date Select
-            @template.content_tag("div", style_options[:field_html].merge({data: {group: 'daily,weekly,monthly'}})) do
-              content_wrap(@template, f.label(:effective_date, style_options[:label_html]), style_options[:label_wrapper]) <<
-              content_wrap( @template, f.send(input_types[:datetime].to_sym, *[:effective_date].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : []).concat([style_options[:time_select_html].clone])), style_options[:time_select_wrapper])
+            @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+              content_wrap(@template, f.label('Time', style_options[:label_html]), style_options[:label_wrapper]) <<
+              @template.content_tag("div", class: 'input-group') do
+                content_wrap(@template, f.text_field(:end_time_time, class: 'form-control')) <<
+                @template.content_tag("div", class: 'input-group-append') do
+                  '<button type="button" class="btn btn-primary"><i class="icon-clock"></i></button>'.html_safe
+                end
+              end
             end <<
 
             # Optional Fields...
 
             # Interval Number Field
             (if input_options[:interval]
-
               @template.content_tag("div", style_options[:field_html].merge({data: {group: 'daily,weekly,monthly'}})) do
                 content_wrap(@template, f.label(:interval, style_options[:label_html]), style_options[:label_wrapper]) <<
                 content_wrap(@template, f.number_field(:interval, style_options[:number_field_html]), style_options[:number_field_wrapper])
@@ -204,11 +229,28 @@ module Schedulable
 
              # Until Date Time Select
             (if input_options[:until]
+              # Effective date Select
+              @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+                content_wrap(@template, f.label('Repeat until date', style_options[:label_html]), style_options[:label_wrapper]) <<
+                @template.content_tag("div", class: 'input-group') do
+                  content_wrap(@template, f.text_field(:until_date, class: 'form-control datepicker')) <<
+                  @template.content_tag("div", class: 'input-group-append') do
+                    '<button type="button" class="btn btn-primary"><i class="icon-calendar"></i></button>'.html_safe
+                  end
+                end
+              end <<
 
-              @template.content_tag("div", style_options[:field_html].merge({data: {group: 'daily,weekly,monthly'}})) do
-                content_wrap(@template, f.label(:until, style_options[:label_html]), style_options[:label_wrapper]) <<
-                content_wrap(@template, f.send(input_types[:datetime].to_sym, *[:until].concat(f.method(input_types[:datetime].to_sym).parameters.count >= 3 ? [datetime_options] : []).concat([style_options[:date_select_html].clone])), style_options[:date_select_wrapper])
+              @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+                content_wrap(@template, f.label('Time', style_options[:label_html]), style_options[:label_wrapper]) <<
+                @template.content_tag("div", class: 'input-group') do
+                  content_wrap(@template, f.text_field(:until_time, class: 'form-control')) <<
+                  @template.content_tag("div", class: 'input-group-append') do
+                    '<button type="button" class="btn btn-primary"><i class="icon-clock"></i></button>'.html_safe
+                  end
+                end
               end
+
+
             else
               f.hidden_field(:until, value: nil)
             end) <<
@@ -221,10 +263,32 @@ module Schedulable
               end
             else
                f.hidden_field(:count, value: 0)
+            end <<
+
+            # Effective date Select
+            @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+              content_wrap(@template, f.label('Effective date', style_options[:label_html]), style_options[:label_wrapper]) <<
+              @template.content_tag("div", class: 'input-group') do
+                content_wrap(@template, f.text_field(:effective_date_date, class: 'form-control datepicker')) <<
+                @template.content_tag("div", class: 'input-group-append') do
+                  '<button type="button" class="btn btn-primary"><i class="icon-calendar"></i></button>'.html_safe
+                end
+              end
+            end <<
+
+            @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
+              content_wrap(@template, f.label('Time', style_options[:label_html]), style_options[:label_wrapper]) <<
+              @template.content_tag("div", class: 'input-group') do
+                content_wrap(@template, f.text_field(:effective_date_time, class: 'form-control')) <<
+                @template.content_tag("div", class: 'input-group-append') do
+                  '<button type="button" class="btn btn-primary"><i class="icon-clock"></i></button>'.html_safe
+                end
+              end
             end
 
           end
 
+          end
         end <<
 
         # Javascript
@@ -245,11 +309,17 @@ module Schedulable
           "  }" <<
           "  if (typeof jQuery !== 'undefined') { jQuery(select).on('change', update); } else { select.addEventListener('change', update); }" <<
           "  update.call(select);" <<
+          "  document.querySelectorAll('.row-days input[checked]').forEach(function(element){" <<
+          "    element.closest('label.btn').classList.add('active');" <<
+          "  });" <<
+          "  function toggleActiveClass(event){ event.target.closest('label.btn').classList.toggle('active');} " <<
+          "  document.querySelectorAll('input[type=checkbox]').forEach(function(element){" <<
+          "    element.addEventListener('change', toggleActiveClass  )" <<
+          "  });" <<
           "})()"
         )
 
       end
-
 
       private
         def content_wrap(template, content, options = nil)
@@ -259,9 +329,6 @@ module Schedulable
             content
           end
         end
-
     end
-
-
   end
 end
