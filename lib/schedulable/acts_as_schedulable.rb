@@ -88,24 +88,24 @@ module Schedulable
 
               # Set the max date to go till
               max_period = Schedulable.config.max_build_period || 1.year
-              max_date = now + max_period
-              max_date = terminating ? [max_date, schedule.last.to_time].min : max_date
+              max_time = (now + max_period).to_time
+              max_time = terminating ? [max_time, schedule.last.to_time].min : max_time
 
               # Generate the start times of the occurrences
               if schedule.rule == 'singular'
                 occurrences = [schedule.start_time]
               else
                 # Get schedule occurrences
-                all_occurrences = schedule.occurrences_between(effective_time_for_changes.beginning_of_day, max_date.to_time)
+                all_occurrences = schedule.occurrences_between(effective_time_for_changes.beginning_of_day, max_time)
 
                 occurrences = []
                 # Filter valid dates
                 all_occurrences.each_with_index do |occurrence_start_time, index|
                   if occurrence_start_time.present? && occurrence_start_time.to_time > effective_time_for_changes
-                    if occurrence_start_time.to_time < max_date
+                    if occurrence_start_time.to_time < max_time
                       occurrences << occurrence_start_time
                     else
-                      max_date = [max_date, occurrence_start_time].min
+                      max_time = [max_time, occurrence_start_time.to_time].min
                     end
                   end
                 end
@@ -174,7 +174,7 @@ module Schedulable
                 event_time         = occurrence_record.start_time
                 event_in_future    = event_time > effective_time_for_changes
                 no_longer_relevant = !occurrences.include?(event_time) ||
-                                     occurrence_record.start_time.to_date > max_date
+                                     occurrence_record.start_time.to_date > max_time
                 if schedule.rule == 'singular' && record_count > 0
                   mark_for_destruction = event_in_future
                 elsif schedule.rule != 'singular' && no_longer_relevant
