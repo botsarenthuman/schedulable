@@ -18,7 +18,7 @@ module Schedulable
         name ||= :schedule
 
         # effective_date sets the starting point for modifying occurrences
-        set_up_accessor('effective_date')
+        set_up_accessor('effective_time')
         # var to store occurrences with errors
         set_up_accessor('occurrences_with_errors')
 
@@ -77,87 +77,80 @@ module Schedulable
             schedule = send(name)
 
             if schedule.present?
+              # Set dates change will be effective from
               now = Time.zone.now
-
-              # all events changes will be made from this date on
-              effective_date_for_changes = effective_date.nil? ? now : effective_date
-
+              effective_time_for_changes = effective_time.nil? ? now : effective_time
+              
+              # Store details about schedulable
               schedulable = schedule.schedulable
               terminating = schedule.rule != 'singular' && (schedule.until.present? || schedule.count.present? && schedule.count > 1)
+              self.occurrences_with_errors = [] if self.occurrences_with_errors.nil?
 
+              # Set the max date to go till
               max_period = Schedulable.config.max_build_period || 1.year
               max_date = now + max_period
-
               max_date = terminating ? [max_date, schedule.last.to_time].min : max_date
 
-              max_count = Schedulable.config.max_build_count || 100
-              max_count = terminating && schedule.remaining_occurrences.any? ? [max_count, schedule.remaining_occurrences.count].min : max_count
-
-              if schedule.rule != 'singular'
+              # Generate the start times of the occurrences
+              if schedule.rule == 'singular'
+                occurrences = [schedule.start_time]
+              else
                 # Get schedule occurrences
-                all_occurrences = schedule.occurrences_between(effective_date_for_changes.beginning_of_day, max_date.to_time)
+                all_occurrences = schedule.occurrences_between(effective_time_for_changes.beginning_of_day, max_date.to_time)
 
                 occurrences = []
                 # Filter valid dates
-                all_occurrences.each_with_index do |occurrence_date, index|
-                  if occurrence_date.present? && occurrence_date.to_time > effective_date_for_changes
-                    if occurrence_date.to_time < max_date && (index <= max_count || max_count <= 0)
-                      occurrences << occurrence_date
+                all_occurrences.each_with_index do |occurrence_start_time, index|
+                  if occurrence_start_time.present? && occurrence_start_time.to_time > effective_time_for_changes
+                    if occurrence_start_time.to_time < max_date
+                      occurrences << occurrence_start_time
                     else
-                      max_date = [max_date, occurrence_date].min
+                      max_date = [max_date, occurrence_start_time].min
                     end
                   end
                 end
-              else
-                occurrences = [schedule.start_time]
               end
-
-              # Build occurrences
+              
+              # Determine update mode
               update_mode = Schedulable.config.update_mode || :datetime
-
-              # Always use index as base for singular events
               update_mode = :index if schedule.rule == 'singular'
 
               # Get existing remaining records
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
+              
+              # Fields that are going to be extracted from the schedulable
+              # and copied over to the occurrence. these should be configured
+              # at the model
+              schedulable_fields = options[:schedulable_fields] || {}
+              schedulable_fields_data = schedulable_fields.reduce({}) do |acum, f|
+                acum[f] = self.send(f)
+                acum
+              end
 
-              # compares existing occurrences in DB with valid occurrences according to icecube
-              # var occurrences stores schedule objects filtered from all_occurrences
+              # Save occurrences that should be in our database. Bear in mind there's two cases
+              # here - a new generation with no existing records and an update
+              # var occurrences is what the schedule should be
               # var occurrences_records stores actual DB records
               occurrences.each_with_index do |occurrence, index|
-                # Pull an existing record
                 if update_mode == :index
-                  existing_records = [occurrences_records[index]]
+                  if schedule.rule == 'singular'
+                    # remaining_#{occurrences_association} doesn't work for singular events
+                    existing_records = [schedulable.send(occurrences_association).first]
+                  else
+                    existing_records = [occurrences_records[index]]
+                  end
                 elsif update_mode == :datetime
-
-                  # select records here that wont be destroyed
                   existing_records = occurrences_records.select do |record|
-                    # only one event per day?
-                    record.start_time.to_date == occurrence.start_time.to_date
+                    record.start_time == occurrence
                   end
                 else
                   existing_records = []
                 end
+                
+                # Merge with start/end time
+                occurrence_data = schedulable_fields_data.merge(start_time: occurrence, end_time: occurrence + schedule.duration)
 
-                start_time = schedule.rule == 'singular' ? occurrence : occurrence.start_time
-                end_time = schedule.rule == 'singular' ? occurrence : occurrence.end_time
-
-                # fields that are going to be extracted from the schedulable
-                # and copied over to the occurrence. these should be configured
-                # at the model
-                schedulable_fields = options[:schedulable_fields] || {}
-
-                # extracting the fields to update/create the related occurrence
-                data = schedulable_fields.reduce({}) do |acum, f|
-                  acum[f] = self.send(f)
-                  acum
-                end
-
-                # Fields that will be used to create/update events
-                occurrence_data = data.merge(start_time: start_time, end_time: end_time)
-
-                self.occurrences_with_errors = [] if self.occurrences_with_errors.nil?
-
+                # Create/Update records
                 if existing_records.any?
                   existing_records.each do |existing_record|
                     existing_record.update_from_schedulable = true
@@ -168,27 +161,30 @@ module Schedulable
                   self.occurrences_with_errors << new_record unless new_record.save
                 end
               end
-
-              # Clean up unused remaining occurrences
+        
+              # Re-load the records as we've created new ones
               occurrences_records = schedulable.send("remaining_#{occurrences_association}")
 
+              # Remove no-longer needed records
               record_count = 0
               destruction_list = occurrences_records.select do |occurrence_record|
-                event_time = occurrence_record.start_time
-
-                mark_for_destruction = schedule.rule != 'singular' &&
-                  (occurrence_record.start_time >= effective_date_for_changes.to_datetime) &&
-                  (!schedule.occurs_on?(event_time) ||
-                  !schedule.occurring_at?(event_time) ||
-                  occurrence_record.start_time.to_date > max_date) ||
-                  schedule.rule == 'singular' && record_count > 0
-
-                mark_for_destruction = (event_time > now) && mark_for_destruction
+                # Note no_longer_relevant uses cached occurrences as it's a) more
+                # efficient b) schedule.occurring_at?(...) was found to be unreliable
+                # during testing (sometimes returned true, sometimes nil)
+                event_time         = occurrence_record.start_time
+                event_in_future    = event_time > effective_time_for_changes
+                no_longer_relevant = !occurrences.include?(event_time) ||
+                                     occurrence_record.start_time.to_date > max_date
+                if schedule.rule == 'singular' && record_count > 0
+                  mark_for_destruction = event_in_future
+                elsif schedule.rule != 'singular' && no_longer_relevant
+                  mark_for_destruction = event_in_future
+                else
+                  mark_for_destruction = false
+                end
                 record_count += 1
-
                 mark_for_destruction
               end
-
               destruction_list.each(&:destroy)
             end
           end
