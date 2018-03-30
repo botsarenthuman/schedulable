@@ -93,19 +93,19 @@ module Schedulable
 
               # Generate the start times of the occurrences
               if schedule.rule == 'singular'
-                occurrences = [schedule.start_time]
+                occurrences = [IceCube::Occurrence.new(schedule.start_time, schedule.end_time)]
               else
                 # Get schedule occurrences
                 all_occurrences = schedule.occurrences_between(effective_time_for_changes.beginning_of_day, max_time)
 
                 occurrences = []
                 # Filter valid dates
-                all_occurrences.each_with_index do |occurrence_start_time, index|
-                  if occurrence_start_time.present? && occurrence_start_time.to_time > effective_time_for_changes
-                    if occurrence_start_time.to_time < max_time
-                      occurrences << occurrence_start_time
+                all_occurrences.each_with_index do |occurrence_item, index|
+                  if occurrence_item.present? && occurrence_item.start_time > effective_time_for_changes
+                    if occurrence_item.start_time < max_time
+                      occurrences << occurrence_item
                     else
-                      max_time = [max_time, occurrence_start_time.to_time].min
+                      max_time = [max_time, occurrence_item.start_time].min
                     end
                   end
                 end
@@ -148,7 +148,7 @@ module Schedulable
                 end
                 
                 # Merge with start/end time
-                occurrence_data = schedulable_fields_data.merge(start_time: occurrence, end_time: occurrence + schedule.duration)
+                occurrence_data = schedulable_fields_data.merge(start_time: occurrence.start_time, end_time: occurrence.end_time)
 
                 # Create/Update records
                 if existing_records.any?
