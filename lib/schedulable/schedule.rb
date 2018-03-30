@@ -7,6 +7,8 @@ module Schedulable
 
       belongs_to :schedulable, polymorphic: true
 
+      attr_accessor :effective_time
+
       after_initialize :update_schedule
       before_save :update_schedule
 

@@ -17,8 +17,6 @@ module Schedulable
       def acts_as_schedulable(name, options = {})
         name ||= :schedule
 
-        # effective_date sets the starting point for modifying occurrences
-        set_up_accessor('effective_time')
         # var to store occurrences with errors
         set_up_accessor('occurrences_with_errors')
 
@@ -79,7 +77,7 @@ module Schedulable
             if schedule.present?
               # Set dates change will be effective from
               now = Time.zone.now
-              effective_time_for_changes = effective_time.nil? ? now : effective_time
+              effective_time_for_changes = schedule.effective_time.nil? ? now : schedule.effective_time
               
               # Store details about schedulable
               schedulable = schedule.schedulable
@@ -89,7 +87,7 @@ module Schedulable
               # Set the max date to go till
               max_period = Schedulable.config.max_build_period || 1.year
               max_time = (now + max_period).to_time
-              max_time = terminating ? [max_time, schedule.last.to_time].min : max_time
+              max_time = terminating ? [max_time, schedule.last.start_time].min : max_time
 
               # Generate the start times of the occurrences
               if schedule.rule == 'singular'
@@ -102,7 +100,7 @@ module Schedulable
                 # Filter valid dates
                 all_occurrences.each_with_index do |occurrence_item, index|
                   if occurrence_item.present? && occurrence_item.start_time > effective_time_for_changes
-                    if occurrence_item.start_time < max_time
+                    if occurrence_item.start_time <= max_time
                       occurrences << occurrence_item
                     else
                       max_time = [max_time, occurrence_item.start_time].min
