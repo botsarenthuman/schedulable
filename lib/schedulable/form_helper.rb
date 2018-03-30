@@ -269,7 +269,7 @@ module Schedulable
             @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
               content_wrap(@template, f.label('Effective date', style_options[:label_html]), style_options[:label_wrapper]) <<
               @template.content_tag("div", class: 'input-group') do
-                content_wrap(@template, f.text_field(:effective_date_date, class: 'form-control datepicker')) <<
+                content_wrap(@template, f.text_field(:effective_time_date, class: 'form-control datepicker')) <<
                 @template.content_tag("div", class: 'input-group-append') do
                   '<button type="button" class="btn btn-primary"><i class="icon-calendar"></i></button>'.html_safe
                 end
@@ -279,7 +279,7 @@ module Schedulable
             @template.content_tag("div", class: 'form-group col-md-6', data: {group: 'singular,daily,weekly,monthly'}) do
               content_wrap(@template, f.label('Time', style_options[:label_html]), style_options[:label_wrapper]) <<
               @template.content_tag("div", class: 'input-group') do
-                content_wrap(@template, f.text_field(:effective_date_time, class: 'form-control')) <<
+                content_wrap(@template, f.text_field(:effective_time_time, class: 'form-control')) <<
                 @template.content_tag("div", class: 'input-group-append') do
                   '<button type="button" class="btn btn-primary"><i class="icon-clock"></i></button>'.html_safe
                 end
