@@ -22,23 +22,11 @@ module Schedulable
       end
 
       def to_s
-        message = ""
         if self.rule == 'singular'
-          # Return formatted datetime for singular rules
-          datetime = DateTime.new(start_time.year, start_time.month, start_time.day, start_time.hour, start_time.min, start_time.sec, start_time.zone)
-          message = I18n.localize(datetime)
+          IceCube::Occurrence.new(@schedule.start_time, @schedule.end_time).to_s
         else
-          # For other rules, refer to icecube
-          begin
-            message = @schedule.to_s
-          rescue Exception
-            locale = I18n.locale
-            I18n.locale = :en
-            message = @schedule.to_s
-            I18n.locale = locale
-          end
+          @schedule.to_s
         end
-        return message
       end
 
       def method_missing(meth, *args, &block)
