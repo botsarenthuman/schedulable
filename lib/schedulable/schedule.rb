@@ -43,25 +43,15 @@ module Schedulable
       end
 
       def generate_schedule        
-        self.rule||= "singular"
-        self.interval||= 1
-        self.count||= 0
+        self.rule     ||= "singular"
+        self.interval ||= 1
+        self.count    ||= 0
 
-        start_time = Date.today.to_time(:utc)
-        if self.start_time.present?
-          start_time = start_time + self.start_time.seconds_since_midnight.seconds
-        end
-        start_time_string = start_time.strftime("%d-%m-%Y %I:%M %p")
-        start_time = Time.zone.parse(start_time_string)
-
-        end_time = Date.today.to_time(:utc)
-        if self.end_time.present?
-          end_time = end_time + self.end_time.seconds_since_midnight.seconds
-        end
-        end_time_string = end_time.strftime("%d-%m-%Y %I:%M %p")
-        end_time = Time.zone.parse(end_time_string)
-
-        ice_cube_schedule = IceCube::Schedule.new(start_time, end_time: end_time)
+        # As we won't ever want to deal with historic events we start from today
+        # (this improves the speed of IceCube)
+        start_time_for_today = Time.zone.today + self.start_time.seconds_since_midnight.seconds
+        end_time_for_today   = Time.zone.today + self.end_time.seconds_since_midnight.seconds
+        ice_cube_schedule    = IceCube::Schedule.new(start_time_for_today, end_time: end_time_for_today)
 
         if self.rule && self.rule != 'singular'
 
@@ -71,7 +61,7 @@ module Schedulable
 
           if self.until
             rule.until(self.until)
-          end          
+          end
 
           if self.count && self.count.to_i > 0
             rule.count(self.count.to_i)
