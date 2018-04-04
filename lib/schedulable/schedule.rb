@@ -9,31 +9,28 @@ module Schedulable
 
       attr_accessor :effective_time
 
-      after_initialize :update_schedule
-      before_save :update_schedule
-
       validates_presence_of :rule
       validates_presence_of :start_time
       validates_presence_of :end_time
       # validates_presence_of :date, if: Proc.new { |schedule| schedule.rule == 'singular' }
-      validate :validate_day, if: Proc.new { |schedule| schedule.rule == 'weekly' }
-      validate :validate_day_of_week, if: Proc.new { |schedule| schedule.rule == 'monthly' }
+      validate :validate_day, if: Proc.new { |s| s.rule == 'weekly' }
+      validate :validate_day_of_week, if: Proc.new { |s| s.rule == 'monthly' }
 
       def to_icecube
-        return @schedule
+        return schedule_obj
       end
 
       def to_s
         if self.rule == 'singular'
-          IceCube::Occurrence.new(@schedule.start_time, @schedule.end_time).to_s
+          IceCube::Occurrence.new(self.start_time, self.end_time).to_s
         else
-          @schedule.to_s
+          schedule_obj.to_s
         end
       end
 
       def method_missing(meth, *args, &block)
-        if @schedule.present? && @schedule.respond_to?(meth)
-          @schedule.send(meth, *args, &block)
+        if schedule_obj && schedule_obj.respond_to?(meth)
+          schedule_obj.send(meth, *args, &block)
         end
       end
 
@@ -41,8 +38,11 @@ module Schedulable
         [:id, :start_time, :end_time, :rule, :until, :count, :interval, day: [], day_of_week: [monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []]]
       end
 
-      def update_schedule()
+      def schedule_obj
+        @schedule ||= generate_schedule
+      end
 
+      def generate_schedule        
         self.rule||= "singular"
         self.interval||= 1
         self.count||= 0
@@ -61,7 +61,7 @@ module Schedulable
         end_time_string = end_time.strftime("%d-%m-%Y %I:%M %p")
         end_time = Time.zone.parse(end_time_string)
 
-        @schedule = IceCube::Schedule.new(start_time, end_time: end_time)
+        ice_cube_schedule = IceCube::Schedule.new(start_time, end_time: end_time)
 
         if self.rule && self.rule != 'singular'
 
@@ -71,7 +71,7 @@ module Schedulable
 
           if self.until
             rule.until(self.until)
-          end
+          end          
 
           if self.count && self.count.to_i > 0
             rule.count(self.count.to_i)
@@ -91,9 +91,9 @@ module Schedulable
               rule.day_of_week(days)
             end
           end
-          @schedule.add_recurrence_rule(rule)
+          ice_cube_schedule.add_recurrence_rule(rule)
         end
-
+        ice_cube_schedule
       end
 
       private
