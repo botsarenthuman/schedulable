@@ -19,6 +19,7 @@ module Schedulable
         :effective_time,
         :effective_time_date,
         :effective_time_time,
+        :timezone,
         day: [],
         day_of_week: [monday: [],
         tuesday: [],

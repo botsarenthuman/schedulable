@@ -22,16 +22,66 @@ module Schedulable
 
       def to_s
         if self.rule == 'singular'
-          IceCube::Occurrence.new(self.start_time, self.end_time).to_s
+          IceCube::Occurrence.new(local_start_time, local_end_time).to_s
         else
           schedule_obj.to_s
         end
       end
 
-      def method_missing(meth, *args, &block)
-        if schedule_obj && schedule_obj.respond_to?(meth)
-          schedule_obj.send(meth, *args, &block)
+      # The database stores the date/time as the user enters it.  However AR returns it to us in
+      # the server timezone, which isn't what we want.  We therefore have methods that add the 
+      # correct timezone to that time.
+      # We can't store the UTC time of a class as that changes with DST - for example a 7am class
+      # is really at 7am in the winter and 6am in the summer (when +1 DST applies).  IE for a given
+      # class it has two UTC times depending on the time of year
+      # So there are three ways to get the start time - 1) As the user sees it (db version)  2) with
+      # correct timezone info on it as a ruby object  3) in UTC
+      def local_start_time
+        if self.timezone && start_time
+          Time.find_zone(self.timezone).local(start_time.year, start_time.month, start_time.day, start_time.hour, start_time.min, start_time.sec)
+        else
+          start_time
         end
+      end
+
+      def local_end_time
+        if self.timezone && end_time
+          Time.find_zone(self.timezone).local(end_time.year, end_time.month, end_time.day, end_time.hour, end_time.min, end_time.sec)
+        else
+          end_time
+        end
+      end
+      
+      def local_until_time
+        if self.timezone && self.until
+          Time.find_zone(self.timezone).local(self.until.year, self.until.month, self.until.day, self.until.hour, self.until.min, self.until.sec)
+        else
+          self.until
+        end
+      end
+      
+      def local_effective_time
+        if self.timezone && effective_time
+          Time.find_zone(self.timezone).local(effective_time.year, effective_time.month, effective_time.day, effective_time.hour, effective_time.min, effective_time.sec)
+        else
+          effective_time
+        end
+      end
+
+      def utc_start_time
+        local_start_time.utc
+      end
+
+      def utc_end_time
+        local_end_time.utc
+      end
+      
+      def utc_until_time
+        local_until_time.utc
+      end
+      
+      def utc_effective_time
+        local_effective_time.utc
       end
 
       def self.param_names
@@ -49,8 +99,9 @@ module Schedulable
 
         # As we won't ever want to deal with historic events we start from today
         # (this improves the speed of IceCube)
-        start_time_for_today = Time.zone.today + self.start_time.seconds_since_midnight.seconds
-        end_time_for_today   = Time.zone.today + self.end_time.seconds_since_midnight.seconds
+        time_in_zone         = Time.find_zone(self.timezone).now
+        start_time_for_today = local_start_time.change(year: time_in_zone.year, month: time_in_zone.month, day: time_in_zone.day)
+        end_time_for_today   = local_end_time.change(year: time_in_zone.year, month: time_in_zone.month, day: time_in_zone.day)
         ice_cube_schedule    = IceCube::Schedule.new(start_time_for_today, end_time: end_time_for_today)
 
         if self.rule && self.rule != 'singular'
@@ -59,8 +110,8 @@ module Schedulable
 
           rule = IceCube::Rule.send("#{self.rule}", self.interval)
 
-          if self.until
-            rule.until(self.until)
+          if local_until_time
+            rule.until(local_until_time)
           end
 
           if self.count && self.count.to_i > 0
@@ -87,6 +138,24 @@ module Schedulable
       end
 
       private
+      # We create private methods for these to stop them being accessed outside the class
+      # With the timezone returned they're incorrect and therefore should not be used other
+      # than to get a time in the right zone via local_start_time
+      def start_time
+        read_attribute(:start_time)
+      end
+      
+      def end_time
+        read_attribute(:end_time)
+      end
+      
+      def start_time=(time)
+        write_attribute(:start_time, time)
+      end
+      
+      def end_time=(time)
+        write_attribute(:end_time, time)
+      end
 
       def validate_day
         day.reject! { |c| c.empty? }

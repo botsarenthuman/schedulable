@@ -8,6 +8,7 @@ class CreateSchedules < ActiveRecord::Migration[5.1]
 
       t.string :rule
       t.string :interval
+      t.string :timezone
 
       t.text :day
       t.text :day_of_week

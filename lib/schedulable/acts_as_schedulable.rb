@@ -77,7 +77,7 @@ module Schedulable
             if schedule.present?
               # Set dates change will be effective from
               now = Time.zone.now
-              effective_time_for_changes = schedule.effective_time.nil? ? now : schedule.effective_time
+              effective_time_for_changes = schedule.local_effective_time.nil? ? now : schedule.local_effective_time
               
               # Store details about schedulable
               schedulable = schedule.schedulable
@@ -87,19 +87,19 @@ module Schedulable
               # Set the max date to go till
               max_period = Schedulable.config.max_build_period || 1.year
               max_time = (now + max_period).to_time
-              max_time = terminating ? [max_time, schedule.last.start_time].min : max_time
+              max_time = terminating ? [max_time, schedule.to_icecube.last.start_time].min : max_time
 
               # Generate the start times of the occurrences
               if schedule.rule == 'singular'
-                occurrences = [IceCube::Occurrence.new(schedule.start_time, schedule.end_time)]
+                occurrences = [IceCube::Occurrence.new(schedule.local_start_time, schedule.local_end_time)]
               else
                 # Get schedule occurrences
-                all_occurrences = schedule.occurrences_between(effective_time_for_changes.beginning_of_day, max_time)
+                all_occurrences = schedule.to_icecube.occurrences_between(effective_time_for_changes, max_time)
 
                 occurrences = []
                 # Filter valid dates
                 all_occurrences.each_with_index do |occurrence_item, index|
-                  if occurrence_item.present? && occurrence_item.start_time > effective_time_for_changes
+                  if occurrence_item.present? && occurrence_item.start_time >= effective_time_for_changes
                     if occurrence_item.start_time <= max_time
                       occurrences << occurrence_item
                     else
@@ -166,13 +166,11 @@ module Schedulable
               # Remove no-longer needed records
               record_count = 0
               destruction_list = occurrences_records.select do |occurrence_record|
-                # Note no_longer_relevant uses cached occurrences as it's a) more
-                # efficient b) schedule.occurring_at?(...) was found to be unreliable
-                # during testing (sometimes returned true, sometimes nil)
+                # Note no_longer_relevant uses cached occurrences as it's more efficient
                 event_time         = occurrence_record.start_time
                 event_in_future    = event_time > effective_time_for_changes
                 no_longer_relevant = !occurrences.include?(event_time) ||
-                                     occurrence_record.start_time.to_date > max_time
+                                     occurrence_record.start_time > max_time
                 if schedule.rule == 'singular' && record_count > 0
                   mark_for_destruction = event_in_future
                 elsif schedule.rule != 'singular' && no_longer_relevant

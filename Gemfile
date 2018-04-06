@@ -13,7 +13,7 @@ gemspec
 # To use debugger
 gem 'debugger'
 
-gem 'ice_cube', git: 'git://github.com/joelmeyerhamme/ice_cube.git', branch: 'master'
+gem 'ice_cube', git: 'git://github.com/seejohnrun/ice_cube.git', branch: 'master'
 gem 'simple_form'
 gem 'rails-i18n', '~> 4.0.0' # For 4.0.x
 gem "date_picker", github: 'benignware/date_picker'
