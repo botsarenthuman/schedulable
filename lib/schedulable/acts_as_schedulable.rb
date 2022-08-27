@@ -14,7 +14,7 @@ module Schedulable
         class_eval("def #{arg}=(val);@#{arg}=val;end")
       end
 
-      def acts_as_schedulable(name, options = {})
+      def acts_as_schedulable(name, **options)
         name ||= :schedule
 
         # var to store occurrences with errors
@@ -37,7 +37,7 @@ module Schedulable
           options[:occurrences][:dependent] ||= :destroy
           options[:occurrences][:autosave] ||= true
 
-          has_many occurrences_association, options[:occurrences]
+          has_many occurrences_association, **options[:occurrences]
 
           # table_name
           occurrences_table_name = occurrences_association.to_s.tableize
@@ -45,12 +45,12 @@ module Schedulable
           # remaining
           remaining_occurrences_options = options[:occurrences].clone
           remaining_occurrences_association = ('remaining_' << occurrences_association.to_s).to_sym
-          has_many remaining_occurrences_association, -> { where("#{occurrences_table_name}.start_time >= ?", Time.zone.now.to_datetime).order('start_time ASC') }, remaining_occurrences_options
+          has_many remaining_occurrences_association, -> { where("#{occurrences_table_name}.start_time >= ?", Time.zone.now.to_datetime).order('start_time ASC') }, **remaining_occurrences_options
 
           # previous
           previous_occurrences_options = options[:occurrences].clone
           previous_occurrences_association = ('previous_' << occurrences_association.to_s).to_sym
-          has_many previous_occurrences_association, -> { where("#{occurrences_table_name}.start_time < ?", Time.zone.now.to_datetime).order('start_time DESC') }, previous_occurrences_options
+          has_many previous_occurrences_association, -> { where("#{occurrences_table_name}.start_time < ?", Time.zone.now.to_datetime).order('start_time DESC') }, **previous_occurrences_options
 
           ActsAsSchedulable.add_occurrences_association(self, occurrences_association)
 
