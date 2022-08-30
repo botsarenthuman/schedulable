@@ -141,21 +141,21 @@ module Schedulable
       # We create private methods for these to stop them being accessed outside the class
       # With the timezone returned they're incorrect and therefore should not be used other
       # than to get a time in the right zone via local_start_time
-      def start_time
-        read_attribute(:start_time)
-      end
+#       def start_time
+#         read_attribute(:start_time)
+#       end
       
-      def end_time
-        read_attribute(:end_time)
-      end
+#       def end_time
+#         read_attribute(:end_time)
+#       end
       
-      def start_time=(time)
-        write_attribute(:start_time, time)
-      end
+#       def start_time=(time)
+#         write_attribute(:start_time, time)
+#       end
       
-      def end_time=(time)
-        write_attribute(:end_time, time)
-      end
+#       def end_time=(time)
+#         write_attribute(:end_time, time)
+#       end
 
       def validate_day
         day.reject! { |c| c.empty? }
