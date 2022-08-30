@@ -11,7 +11,7 @@ module Schedulable
 
       validates_presence_of :rule
       validates_presence_of :start_time
-      validates_presence_of :end_time
+      # validates_presence_of :end_time
       # validates_presence_of :date, if: Proc.new { |schedule| schedule.rule == 'singular' }
       validate :validate_day, if: Proc.new { |s| s.rule == 'weekly' }
       validate :validate_day_of_week, if: Proc.new { |s| s.rule == 'monthly' }
