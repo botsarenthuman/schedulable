@@ -152,7 +152,7 @@ module Schedulable
                 if existing_records.any?
                   existing_records.each do |existing_record|
                     # TODO FIX THIS
-                    existing_record.update_from_schedulable = true
+                    # existing_record.update_from_schedulable = true
                     self.occurrences_with_errors << existing_record unless existing_record.update(occurrence_data)
                   end
                 else
